@@ -77,14 +77,12 @@ input::placeholder{color:#b89f90;}
   background:linear-gradient(135deg,var(--burgundy),var(--wine));
   color:var(--gold-light);padding:.85rem 2.5rem;font-size:1.15rem;
   letter-spacing:.08em;border-radius:8px;
-  box-shadow:0 4px 16px rgba(107,30,46,.4);width:100%;
+  box-shadow:0 4px 16px rgba(107,30,46,.4);width:100%;border:none;cursor:pointer;
 }
 .btn-primary:hover{box-shadow:0 6px 22px rgba(107,30,46,.55);transform:translateY(-1px);}
-.btn-back{background:linear-gradient(135deg,#2C1810,#4a2020);color:var(--gold-light);padding:.85rem 2.5rem;font-size:1.15rem;letter-spacing:.08em;border-radius:8px;width:100%;margin-top:.5rem;}
-.btn-print{background:transparent;color:var(--gold);border:1.5px solid var(--gold);padding:.6rem 1.4rem;}
-.btn-print:hover{background:rgba(201,168,76,.1);}
+.btn-back{background:linear-gradient(135deg,#2C1810,#4a2020);color:var(--gold-light);padding:.85rem 2.5rem;font-size:1.15rem;letter-spacing:.08em;border-radius:8px;width:100%;margin-top:.5rem;border:none;cursor:pointer;}
+.btn-print{background:transparent;color:var(--gold);border:1.5px solid var(--gold);padding:.6rem 1.4rem;cursor:pointer;}
 .err{background:rgba(196,114,125,.15);border:1px solid rgba(196,114,125,.4);border-radius:6px;padding:.7rem 1rem;color:var(--wine);font-size:.95rem;margin-bottom:1rem;display:none;}
-/* RESULT */
 #result{display:none;}
 .result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
 .divider{height:1px;background:linear-gradient(to right,transparent,rgba(107,30,46,.2),transparent);margin:1rem 0;}
@@ -105,7 +103,6 @@ input::placeholder{color:#b89f90;}
 .td-name{font-weight:600;color:var(--text);}
 .td-amt{color:var(--wine);font-weight:600;font-family:'Playfair Display',serif;}
 .td-to{color:var(--muted);font-size:.9rem;}
-.pay-table tr:hover td{background:rgba(107,30,46,.04);}
 .check-box{background:rgba(107,30,46,.05);border:1px dashed rgba(107,30,46,.25);border-radius:8px;padding:.9rem 1.1rem;font-size:.95rem;color:var(--muted);}
 .ci{display:flex;justify-content:space-between;margin-bottom:.3rem;}
 .ct{border-top:1.5px solid rgba(107,30,46,.2);margin-top:.5rem;padding-top:.5rem;font-weight:700;color:var(--burgundy);font-size:1.05rem;display:flex;justify-content:space-between;}
@@ -133,7 +130,7 @@ input::placeholder{color:#b89f90;}
       <div style="margin-top:1.2rem">
         <div class="section-header">
           <label style="margin:0">Quem pagou o quê?</label>
-          <button class="btn btn-add" onclick="addPayer()">+ Adicionar</button>
+          <button class="btn btn-add" id="btn-add-payer">+ Adicionar</button>
         </div>
         <div id="payers-list"></div>
       </div>
@@ -144,13 +141,13 @@ input::placeholder{color:#b89f90;}
   <div class="card-title"><span>👥</span> Participantes (que não pagaram)</div>
   <div class="section-header">
     <label style="margin:0">Quem deve pagar a cota?</label>
-    <button class="btn btn-add" onclick="addParticipant()">+ Adicionar</button>
+    <button class="btn btn-add" id="btn-add-part">+ Adicionar</button>
   </div>
   <div id="parts-list"></div>
 </div>
 
 <div class="err" id="err"></div>
-<button class="btn btn-primary" onclick="calculate()">Calcular Rateio 🍷</button>
+<button class="btn-primary" id="btn-calc">Calcular Rateio 🍷</button>
 ```
 
   </div>
@@ -159,7 +156,7 @@ input::placeholder{color:#b89f90;}
     <div class="card">
       <div class="result-header">
         <div class="card-title" style="margin:0"><span>📊</span> Resultado do Rateio</div>
-        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-print" id="btn-print">🖨️ Imprimir</button>
       </div>
       <div id="ev-title" style="color:var(--muted);font-style:italic;margin-bottom:1rem;font-size:.98rem;"></div>
       <div class="totals-grid" id="totals"></div>
@@ -173,201 +170,197 @@ input::placeholder{color:#b89f90;}
       <div class="card-title" style="font-size:.98rem;margin-bottom:.8rem"><span>✅</span> Conferência</div>
       <div class="check-box" id="check"></div>
     </div>
-    <button class="btn btn-back" onclick="goBack()">← Novo Encontro</button>
+    <button class="btn-back" id="btn-back">← Novo Encontro</button>
   </div>
 
 </div>
+
 <script>
-// ── STATE ──────────────────────────────────────────────
-var payerCount = 0;
-var partCount  = 0;
-var payerIds   = [];
-var partIds    = [];
+(function() {
+  var payerCount = 0;
+  var partCount  = 0;
+  var payerIds   = [];
+  var partIds    = [];
 
-// ── INIT ───────────────────────────────────────────────
-function init() {
-addPayer(‘Júlio’,  ‘Cartola’,  730.40);
-addPayer(‘Sílvio’, ‘Vinhos’,  1030.55);
-addParticipant(‘Beto’);
-addParticipant(‘Marcos’);
-addParticipant(‘José’);
-addParticipant(‘Toninho’);
-}
+  function fmt(v) {
+    return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
 
-// ── PAGADORES ──────────────────────────────────────────
-function addPayer(name, item, val) {
-payerCount++;
-var id = payerCount;
-payerIds.push(id);
-var list = document.getElementById(‘payers-list’);
-var div = document.createElement(‘div’);
-div.className = ‘row-payer’;
-div.id = ‘prow-’ + id;
-div.innerHTML =
-‘<div class="icon-wrap"><span class="row-icon">🧑</span>’ +
-‘<input type="text" id="pname-' + id + '" placeholder="Nome" value="' + (name||'') + '"></div>’ +
-‘<input type="text" id="pitem-' + id + '" placeholder="Item (ex: Cartola)" value="' + (item||'') + '">’ +
-‘<input type="number" id="pval-' + id + '" placeholder="R$ 0,00" min="0" step="0.01" value="' + (val||'') + '">’ +
-‘<button class="btn btn-rm" onclick="removePayer(' + id + ')">✕</button>’;
-list.appendChild(div);
-}
+  function showErr(msg) {
+    var el = document.getElementById('err');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(function() { el.style.display = 'none'; }, 4000);
+  }
 
-function removePayer(id) {
-if (payerIds.length <= 1) return;
-payerIds = payerIds.filter(function(x){ return x !== id; });
-var el = document.getElementById(‘prow-’ + id);
-if (el) el.parentNode.removeChild(el);
-}
+  function addPayer(name, item, val) {
+    payerCount++;
+    var id = payerCount;
+    payerIds.push(id);
+    var list = document.getElementById('payers-list');
+    var div = document.createElement('div');
+    div.className = 'row-payer';
+    div.id = 'prow-' + id;
+    div.innerHTML =
+      '<div class="icon-wrap"><span class="row-icon">🧑</span>' +
+      '<input type="text" id="pname-' + id + '" placeholder="Nome" value="' + (name || '') + '"></div>' +
+      '<input type="text" id="pitem-' + id + '" placeholder="Item (ex: Cartola)" value="' + (item || '') + '">' +
+      '<input type="number" id="pval-' + id + '" placeholder="R$ 0,00" min="0" step="0.01" value="' + (val || '') + '">' +
+      '<button class="btn btn-rm" data-id="' + id + '" data-type="payer">✕</button>';
+    list.appendChild(div);
+    div.querySelector('[data-type="payer"]').addEventListener('click', function() {
+      removePayer(parseInt(this.getAttribute('data-id')));
+    });
+  }
 
-// ── PARTICIPANTES ──────────────────────────────────────
-function addParticipant(name) {
-partCount++;
-var id = partCount;
-partIds.push(id);
-var list = document.getElementById(‘parts-list’);
-var div = document.createElement(‘div’);
-div.className = ‘row-part’;
-div.id = ‘partrow-’ + id;
-div.innerHTML =
-‘<div class="icon-wrap"><span class="row-icon">🙋</span>’ +
-‘<input type="text" id="partname-' + id + '" placeholder="Nome do participante" value="' + (name||'') + '"></div>’ +
-‘<button class="btn btn-rm" onclick="removeParticipant(' + id + ')">✕</button>’;
-list.appendChild(div);
-}
+  function removePayer(id) {
+    if (payerIds.length <= 1) return;
+    payerIds = payerIds.filter(function(x) { return x !== id; });
+    var el = document.getElementById('prow-' + id);
+    if (el) el.parentNode.removeChild(el);
+  }
 
-function removeParticipant(id) {
-if (partIds.length <= 1) return;
-partIds = partIds.filter(function(x){ return x !== id; });
-var el = document.getElementById(‘partrow-’ + id);
-if (el) el.parentNode.removeChild(el);
-}
+  function addParticipant(name) {
+    partCount++;
+    var id = partCount;
+    partIds.push(id);
+    var list = document.getElementById('parts-list');
+    var div = document.createElement('div');
+    div.className = 'row-part';
+    div.id = 'partrow-' + id;
+    div.innerHTML =
+      '<div class="icon-wrap"><span class="row-icon">🙋</span>' +
+      '<input type="text" id="partname-' + id + '" placeholder="Nome do participante" value="' + (name || '') + '"></div>' +
+      '<button class="btn btn-rm" data-id="' + id + '" data-type="part">✕</button>';
+    list.appendChild(div);
+    div.querySelector('[data-type="part"]').addEventListener('click', function() {
+      removePart(parseInt(this.getAttribute('data-id')));
+    });
+  }
 
-// ── HELPERS ────────────────────────────────────────────
-function fmt(v) {
-return ‘R$ ’ + v.toFixed(2).replace(’.’, ‘,’).replace(/\B(?=(\d{3})+(?!\d))/g, ‘.’);
-}
+  function removePart(id) {
+    if (partIds.length <= 1) return;
+    partIds = partIds.filter(function(x) { return x !== id; });
+    var el = document.getElementById('partrow-' + id);
+    if (el) el.parentNode.removeChild(el);
+  }
 
-function showErr(msg) {
-var el = document.getElementById(‘err’);
-el.textContent = msg;
-el.style.display = ‘block’;
-setTimeout(function(){ el.style.display = ‘none’; }, 4000);
-}
+  function calculate() {
+    var payers = [];
+    for (var i = 0; i < payerIds.length; i++) {
+      var id = payerIds[i];
+      var name = (document.getElementById('pname-' + id).value || '').trim();
+      var item = (document.getElementById('pitem-' + id).value || '').trim();
+      var val  = parseFloat(document.getElementById('pval-' + id).value) || 0;
+      if (name && val > 0) payers.push({ name: name, item: item, value: val });
+    }
+    var parts = [];
+    for (var j = 0; j < partIds.length; j++) {
+      var pid = partIds[j];
+      var pname = (document.getElementById('partname-' + pid).value || '').trim();
+      if (pname) parts.push({ name: pname });
+    }
+    if (payers.length === 0) return showErr('Informe ao menos um pagador com valor.');
+    if (parts.length === 0)  return showErr('Informe ao menos um participante.');
 
-// ── CALCULAR ───────────────────────────────────────────
-function calculate() {
-// coletar pagadores
-var payers = [];
-for (var i = 0; i < payerIds.length; i++) {
-var id = payerIds[i];
-var name = (document.getElementById(‘pname-’ + id).value || ‘’).trim();
-var item = (document.getElementById(‘pitem-’ + id).value || ‘’).trim();
-var val  = parseFloat(document.getElementById(‘pval-’  + id).value) || 0;
-if (name && val > 0) payers.push({ name: name, item: item, value: val });
-}
+    var total  = 0;
+    for (var k = 0; k < payers.length; k++) total += payers[k].value;
+    var nTotal = payers.length + parts.length;
+    var share  = total / nTotal;
+    var nParts = parts.length;
 
-// coletar participantes
-var parts = [];
-for (var j = 0; j < partIds.length; j++) {
-var pid = partIds[j];
-var pname = (document.getElementById(‘partname-’ + pid).value || ‘’).trim();
-if (pname) parts.push({ name: pname });
-}
+    for (var p = 0; p < payers.length; p++) {
+      payers[p].net = payers[p].value - share;
+      payers[p].pp  = payers[p].net / nParts;
+    }
 
-if (payers.length === 0) return showErr(‘Informe ao menos um pagador com valor.’);
-if (parts.length === 0)  return showErr(‘Informe ao menos um participante.’);
+    document.getElementById('totals').innerHTML =
+      '<div class="total-box"><div class="lbl">Total gasto</div><div class="val">' + fmt(total) + '</div></div>' +
+      '<div class="total-box"><div class="lbl">Participantes</div><div class="val">' + nTotal + ' pessoas</div></div>' +
+      '<div class="total-box hl"><div class="lbl">Cota por pessoa</div><div class="val">' + fmt(share) + '</div></div>';
 
-var total   = 0;
-for (var k = 0; k < payers.length; k++) total += payers[k].value;
+    var dt = document.getElementById('data').value || '';
+    var lc = document.getElementById('local').value || '';
+    document.getElementById('ev-title').textContent = [dt, lc].filter(Boolean).join(' · ');
 
-var nTotal  = payers.length + parts.length;  // total de pessoas
-var share   = total / nTotal;                 // cota por pessoa
-var nParts  = parts.length;                   // quem deve pagar
+    var html = '';
+    for (var p2 = 0; p2 < payers.length; p2++) {
+      var py = payers[p2];
+      var det = parts.map(function(pt) { return pt.name + ': ' + fmt(py.pp); }).join(' · ');
+      html +=
+        '<div class="payer-result">' +
+        '<div class="pr-name">🍾 ' + py.name + ' <span style="font-size:.82rem;color:var(--muted);font-weight:400"> — ' + (py.item || 'despesa') + '</span></div>' +
+        '<div class="pr-detail">' +
+        '<span>Pagou: <strong>' + fmt(py.value) + '</strong></span>' +
+        '<span>Cota: <strong>' + fmt(share) + '</strong></span>' +
+        '<span style="color:var(--wine)">Líquido: <strong>' + fmt(py.net) + '</strong></span>' +
+        '</div>' +
+        '<div class="pr-sub">' + fmt(py.net) + ' ÷ ' + nParts + ' = <strong>' + fmt(py.pp) + '</strong> por pessoa · ' + det + '</div>' +
+        '</div>';
+    }
+    document.getElementById('payers-res').innerHTML = html;
 
-// líquido de cada pagador dividido pelos participantes
-for (var p = 0; p < payers.length; p++) {
-payers[p].net       = payers[p].value - share;
-payers[p].perPerson = payers[p].net / nParts;
-}
+    var rows = '';
+    for (var q = 0; q < parts.length; q++) {
+      var pt = parts[q];
+      var totalOwed = 0;
+      for (var r = 0; r < payers.length; r++) {
+        totalOwed += payers[r].pp;
+        rows +=
+          '<tr><td class="td-name">' + pt.name + '</td>' +
+          '<td class="td-to">→ ' + payers[r].name + ' <span style="font-size:.8rem;color:#aaa">(' + (payers[r].item || 'despesa') + ')</span></td>' +
+          '<td class="td-amt">' + fmt(payers[r].pp) + '</td></tr>';
+      }
+      rows +=
+        '<tr style="background:rgba(107,30,46,.05)">' +
+        '<td class="td-name" style="color:var(--burgundy)">↳ Total ' + pt.name + '</td>' +
+        '<td></td>' +
+        '<td class="td-amt" style="color:var(--burgundy)">' + fmt(totalOwed) + '</td></tr>';
+    }
+    document.getElementById('pay-rows').innerHTML = rows;
 
-// ── TOTAIS ──
-document.getElementById(‘totals’).innerHTML =
-‘<div class="total-box"><div class="lbl">Total gasto</div><div class="val">’ + fmt(total) + ‘</div></div>’ +
-‘<div class="total-box"><div class="lbl">Participantes</div><div class="val">’ + nTotal + ’ pessoas</div></div>’ +
-‘<div class="total-box hl"><div class="lbl">Cota por pessoa</div><div class="val">’ + fmt(share) + ‘</div></div>’;
+    var chk = '';
+    var totalRec = 0;
+    for (var s = 0; s < payers.length; s++) {
+      var received = nParts * payers[s].pp;
+      totalRec += received;
+      chk += '<div class="ci"><span>' + nParts + ' × ' + fmt(payers[s].pp) + ' (' + (payers[s].item || payers[s].name) + ')</span><span>' + fmt(received) + '</span></div>';
+    }
+    var totalNets = 0;
+    for (var t = 0; t < payers.length; t++) totalNets += payers[t].net;
+    chk += '<div class="ct"><span>Total recebido</span><span>' + fmt(totalRec) + '</span></div>';
+    chk += '<div class="ci" style="margin-top:.5rem"><span>Soma dos líquidos</span><span>' + fmt(totalNets) + '</span></div>';
+    var isOk = Math.abs(totalRec - totalNets) < 0.02;
+    chk += '<div style="margin-top:.6rem;font-size:.9rem" class="' + (isOk ? 'ok' : '') + '">' + (isOk ? '✔ Conferido — os valores batem.' : '⚠ Verifique os valores.') + '</div>';
+    document.getElementById('check').innerHTML = chk;
 
-// ── TÍTULO ──
-var dt = document.getElementById(‘data’).value || ‘’;
-var lc = document.getElementById(‘local’).value || ‘’;
-document.getElementById(‘ev-title’).textContent = [dt, lc].filter(Boolean).join(’ · ’);
+    document.getElementById('input-section').style.display = 'none';
+    document.getElementById('result').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-// ── QUEM RECEBE ──
-var html = ‘’;
-for (var p2 = 0; p2 < payers.length; p2++) {
-var py = payers[p2];
-var detalhes = parts.map(function(pt){ return pt.name + ‘: ’ + fmt(py.perPerson); }).join(’ · ’);
-html +=
-‘<div class="payer-result">’ +
-‘<div class="pr-name">🍾 ’ + py.name + ’ <span style="font-size:.82rem;color:var(--muted);font-weight:400"> — ’ + (py.item||‘despesa’) + ‘</span></div>’ +
-‘<div class="pr-detail">’ +
-‘<span>Pagou: <strong>’ + fmt(py.value) + ‘</strong></span>’ +
-‘<span>Cota: <strong>’ + fmt(share) + ‘</strong></span>’ +
-‘<span style="color:var(--wine)">Líquido: <strong>’ + fmt(py.net) + ‘</strong></span>’ +
-‘</div>’ +
-‘<div class="pr-sub">’ + fmt(py.net) + ’ ÷ ’ + nParts + ’ = <strong>’ + fmt(py.perPerson) + ’</strong> por pessoa · ’ + detalhes + ‘</div>’ +
-‘</div>’;
-}
-document.getElementById(‘payers-res’).innerHTML = html;
+  function goBack() {
+    document.getElementById('input-section').style.display = 'block';
+    document.getElementById('result').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-// ── TABELA PAGAMENTOS ──
-var rows = ‘’;
-for (var q = 0; q < parts.length; q++) {
-var pt = parts[q];
-var totalOwed = 0;
-for (var r = 0; r < payers.length; r++) {
-totalOwed += payers[r].perPerson;
-rows +=
-‘<tr><td class="td-name">’ + pt.name + ‘</td>’ +
-‘<td class="td-to">→ ’ + payers[r].name + ’ <span style="font-size:.8rem;color:#aaa">(’ + (payers[r].item||‘despesa’) + ‘)</span></td>’ +
-‘<td class="td-amt">’ + fmt(payers[r].perPerson) + ‘</td></tr>’;
-}
-rows +=
-‘<tr style="background:rgba(107,30,46,.05)">’ +
-’<td class="td-name" style="color:var(--burgundy)">↳ Total ’ + pt.name + ‘</td>’ +
-‘<td></td>’ +
-‘<td class="td-amt" style="color:var(--burgundy)">’ + fmt(totalOwed) + ‘</td>’ +
-‘</tr>’;
-}
-document.getElementById(‘pay-rows’).innerHTML = rows;
+  // Eventos via addEventListener — sem onclick inline
+  document.getElementById('btn-add-payer').addEventListener('click', function() { addPayer('', '', ''); });
+  document.getElementById('btn-add-part').addEventListener('click',  function() { addParticipant(''); });
+  document.getElementById('btn-calc').addEventListener('click',      calculate);
+  document.getElementById('btn-back').addEventListener('click',      goBack);
+  document.getElementById('btn-print').addEventListener('click',     function() { window.print(); });
 
-// ── CONFERÊNCIA ──
-var chk = ‘’;
-var totalRec = 0;
-for (var s = 0; s < payers.length; s++) {
-var received = nParts * payers[s].perPerson;
-totalRec += received;
-chk += ‘<div class="ci"><span>’ + nParts + ’ × ’ + fmt(payers[s].perPerson) + ’ (’ + (payers[s].item||payers[s].name) + ‘)</span><span>’ + fmt(received) + ‘</span></div>’;
-}
-var totalNets = 0;
-for (var t = 0; t < payers.length; t++) totalNets += payers[t].net;
-chk += ‘<div class="ct"><span>Total recebido</span><span>’ + fmt(totalRec) + ‘</span></div>’;
-chk += ‘<div class="ci" style="margin-top:.5rem"><span>Soma dos líquidos</span><span>’ + fmt(totalNets) + ‘</span></div>’;
-var ok = Math.abs(totalRec - totalNets) < 0.02;
-chk += ‘<div style="margin-top:.6rem;font-size:.9rem" class="' + (ok?'ok':'') + '">’ + (ok ? ‘✔ Conferido — os valores batem.’ : ‘⚠ Verifique os valores.’) + ‘</div>’;
-document.getElementById(‘check’).innerHTML = chk;
+  // Dados iniciais
+  addPayer('Júlio',  'Cartola',  730.40);
+  addPayer('Sílvio', 'Vinhos',  1030.55);
+  addParticipant('Beto');
+  addParticipant('Marcos');
+  addParticipant('José');
+  addParticipant('Toninho');
 
-document.getElementById(‘input-section’).style.display = ‘none’;
-document.getElementById(‘result’).style.display = ‘block’;
-window.scrollTo({top:0,behavior:‘smooth’});
-}
-
-function goBack() {
-document.getElementById(‘input-section’).style.display = ‘block’;
-document.getElementById(‘result’).style.display = ‘none’;
-window.scrollTo({top:0,behavior:‘smooth’});
-}
-
-init();
+})();
 </script>
 
 </body>
